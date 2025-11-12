@@ -1,0 +1,198 @@
+﻿@model Sistema_de_Ticket.ViewModels.TicketIndexVM
+@using Sistema_de_Ticket.Models
+@using System.Linq
+
+@{
+    ViewData["Title"] = "Tickets";
+}
+
+<div class="card-help p-3 mb-3">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-2">
+        <h2 class="m-0">Tickets</h2>
+        <div class="d-flex align-items-center gap-2">
+            <a class="btn btn-primary" asp-action="Create">Nuevo ticket</a>
+        </div>
+    </div>
+
+    @if (TempData["ok"] != null)
+    {
+        <div class="alert alert-success mt-3 mb-0">@TempData["ok"]</div>
+    }
+    @if (TempData["err"] != null)
+    {
+        <div class="alert alert-danger mt-3 mb-0">@TempData["err"]</div>
+    }
+</div>
+
+<!-- Métricas -->
+<div class="row g-3 mb-3">
+    <div class="col-12 col-md-4">
+        <div class="card-help p-3 text-center">
+            <div class="text-muted">En curso</div>
+            <div class="fs-3 fw-bold">@Model.EnCurso</div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card-help p-3 text-center">
+            <div class="text-muted">Resueltos</div>
+            <div class="fs-3 fw-bold">@Model.Resueltos</div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card-help p-3 text-center">
+            <div class="text-muted">Sin asignar</div>
+            <div class="fs-3 fw-bold">@((Model.Pendientes?.Count ?? 0))</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card-help p-3 mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-12 col-md-4">
+            <label class="form-label">Estado</label>
+            <select name="filtroEstado" class="form-select">
+                <option value="">-- Estado --</option>
+                @foreach (var e in (Model.Estados ?? Enumerable.Empty<string>()))
+                {
+                    var isSel = string.Equals(Model.FiltroEstado, e, StringComparison.OrdinalIgnoreCase);
+                    if (isSel)
+                    {
+                        <option value="@e" selected>@e</option>
+                    }
+                    else
+                    {
+                        <option value="@e">@e</option>
+                    }
+                }
+            </select>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <label class="form-label">Severidad</label>
+            <select name="filtroSeveridad" class="form-select">
+                <option value="">-- Severidad --</option>
+                @foreach (var s in (Model.Severidades ?? Enumerable.Empty<string>()))
+                {
+                    var isSel = string.Equals(Model.FiltroSeveridad, s, StringComparison.OrdinalIgnoreCase);
+                    if (isSel)
+                    {
+                        <option value="@s" selected>@s</option>
+                    }
+                    else
+                    {
+                        <option value="@s">@s</option>
+                    }
+                }
+            </select>
+        </div>
+
+        <div class="col-12 col-md-4 d-flex gap-2">
+            <button class="btn btn-secondary" type="submit">Filtrar</button>
+            <a class="btn btn-outline-secondary" href="@Url.Action("Index")">Limpiar</a>
+        </div>
+    </form>
+</div>
+
+<!-- Tickets asignados -->
+<div class="card-help p-0 mb-4">
+    <div class="p-3 border-bottom fw-semibold">Tickets asignados</div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Título</th>
+                    <th>Estado</th>
+                    <th>Severidad</th>
+                    <th>Creador</th>
+                    <th>Técnico asignado</th>
+                    <th>Fecha de creación</th>
+                    <th class="text-end" style="width:260px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in (Model.Asignados ?? Enumerable.Empty<Ticket>()))
+                {
+                    <tr>
+                        <td class="fw-semibold">@t.Titulo</td>
+                        <td><span class="@EstadoBadgeClass(t.Estado)">@t.Estado</span></td>
+                        <td><span class="@SeveridadBadgeClass(t.Severidad)">@t.Severidad</span></td>
+                        <td>@t.UsuarioCreador?.UserName</td>
+                        <td>@t.TecnicoAsignado?.UserName</td>
+                        <td>@t.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a class="btn btn-outline-primary" asp-action="Details" asp-route-id="@t.Id">Ver</a>
+                                <a class="btn btn-outline-warning" asp-action="Edit" asp-route-id="@t.Id">Editar</a>
+                                <a class="btn btn-outline-info" asp-action="Assign" asp-route-id="@t.Id">Asignar</a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Tickets pendientes de asignación -->
+<div class="card-help p-0">
+    <div class="p-3 border-bottom fw-semibold">Tickets pendientes de asignación</div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Título</th>
+                    <th>Estado</th>
+                    <th>Severidad</th>
+                    <th>Creador</th>
+                    <th>Técnico asignado</th>
+                    <th>Fecha de creación</th>
+                    <th class="text-end" style="width:260px;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in (Model.Pendientes ?? Enumerable.Empty<Ticket>()))
+                {
+                    <tr>
+                        <td class="fw-semibold">@t.Titulo</td>
+                        <td><span class="@EstadoBadgeClass(t.Estado)">@t.Estado</span></td>
+                        <td><span class="@SeveridadBadgeClass(t.Severidad)">@t.Severidad</span></td>
+                        <td>@t.UsuarioCreador?.UserName</td>
+                        <td class="text-muted">Sin asignar</td>
+                        <td>@t.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a class="btn btn-outline-primary" asp-action="Details" asp-route-id="@t.Id">Ver</a>
+                                <a class="btn btn-outline-warning" asp-action="Edit" asp-route-id="@t.Id">Editar</a>
+                                <a class="btn btn-outline-info" asp-action="Assign" asp-route-id="@t.Id">Asignar</a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@functions {
+    string EstadoBadgeClass(EstadoTicket estado)
+    {
+        return estado switch
+        {
+            EstadoTicket.EnProceso => "badge badge-status badge-replied",
+            EstadoTicket.Cerrado => "badge badge-status badge-closed",
+            _ => "badge badge-status badge-new"
+        };
+    }
+
+    string SeveridadBadgeClass(SeveridadTicket severidad)
+    {
+        return severidad switch
+        {
+            SeveridadTicket.Alta => "badge badge-priority-high",
+            SeveridadTicket.Media => "badge badge-priority-medium",
+            SeveridadTicket.Baja => "badge badge-priority-low",
+            _ => "badge bg-secondary"
+        };
+    }
+}

@@ -1,0 +1,24 @@
+﻿@* Views/Shared/_AuthLayout.cshtml *@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] - Sistema_de_Ticket</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="auth-bg">
+    <main class="min-vh-100 d-flex align-items-center justify-content-center p-3">
+        <div class="auth-card card shadow-lg border-0">
+            <div class="card-body p-4 p-md-5">
+                @RenderBody()
+            </div>
+        </div>
+    </main>
+
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

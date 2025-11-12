@@ -1,0 +1,41 @@
+﻿@model IEnumerable<Sistema_de_Ticket.ViewModels.RoleListItemVM>
+
+@{
+    ViewData["Title"] = "Roles";
+}
+
+<h2>Roles</h2>
+
+@if (TempData["ok"] != null)
+{
+    <div class="alert alert-success">@TempData["ok"]</div>
+}
+@if (TempData["err"] != null)
+{
+    <div class="alert alert-danger">@TempData["err"]</div>
+}
+
+<p><a class="btn btn-primary" asp-action="Create">Crear rol</a></p>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Nombre</th>
+            <th style="width:180px;"></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var r in Model)
+        {
+            <tr>
+                <td>@r.Name</td>
+                <td class="text-end">
+                    <a class="btn btn-sm btn-info" asp-action="Edit" asp-route-id="@r.Id">Editar</a>
+                    <form asp-action="Delete" asp-route-id="@r.Id" method="post" class="d-inline" onsubmit="return confirm('¿Eliminar rol @r.Name?');">
+                        <button class="btn btn-sm btn-danger" type="submit">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

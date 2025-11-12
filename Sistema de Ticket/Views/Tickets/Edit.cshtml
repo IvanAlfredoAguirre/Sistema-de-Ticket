@@ -1,0 +1,59 @@
+﻿@model Sistema_de_Ticket.Models.Ticket
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Editar Ticket";
+    var tecnicos = (List<SelectListItem>)ViewBag.Tecnicos;
+}
+
+<h2>Editar Ticket</h2>
+<hr />
+
+<form asp-action="Edit" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input type="hidden" asp-for="Id" />
+
+    <div class="mb-3">
+        <label asp-for="Titulo" class="form-label"></label>
+        <input asp-for="Titulo" class="form-control" />
+        <span asp-validation-for="Titulo" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Descripcion" class="form-label"></label>
+        <textarea asp-for="Descripcion" class="form-control" rows="4"></textarea>
+        <span asp-validation-for="Descripcion" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Estado</label>
+        <select asp-for="Estado" class="form-select"
+                asp-items="Html.GetEnumSelectList<Sistema_de_Ticket.Models.EstadoTicket>()"></select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Severidad</label>
+        <select asp-for="Severidad" class="form-select"
+                asp-items="Html.GetEnumSelectList<Sistema_de_Ticket.Models.SeveridadTicket>()"></select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Técnico</label>
+        <select asp-for="TecnicoAsignadoId" class="form-select"
+                asp-items="@(new SelectList(tecnicos, "Value", "Text"))">
+            <option value="">-- Sin asignar --</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Notas" class="form-label"></label>
+        <textarea asp-for="Notas" class="form-control" rows="3"></textarea>
+        <span asp-validation-for="Notas" class="text-danger"></span>
+    </div>
+
+    <button class="btn btn-primary" type="submit">Guardar cambios</button>
+    <a class="btn btn-secondary" asp-action="Index">Volver</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

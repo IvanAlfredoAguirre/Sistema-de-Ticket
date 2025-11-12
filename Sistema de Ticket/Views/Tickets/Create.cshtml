@@ -1,0 +1,70 @@
+﻿@model Sistema_de_Ticket.Models.Ticket
+@using Microsoft.AspNetCore.Mvc.Rendering
+@{
+    ViewData["Title"] = "Nuevo Ticket";
+}
+
+<h2>Nuevo Ticket</h2>
+<hr />
+
+<form asp-action="Create" method="post" novalidate>
+    @Html.AntiForgeryToken()
+
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <!-- Título -->
+    <div class="mb-3">
+        <label asp-for="Titulo" class="form-label"></label>
+        <input asp-for="Titulo" class="form-control" autocomplete="off" />
+        <span asp-validation-for="Titulo" class="text-danger"></span>
+    </div>
+
+    <!-- Fecha de creación: solo visual, el servidor la setea -->
+    <div class="mb-3">
+        <label class="form-label">Fecha de creación</label>
+        <input class="form-control" value="@DateTime.Now.ToString("dd/MM/yyyy HH:mm")" readonly />
+    </div>
+
+    <!-- Severidad -->
+    <div class="mb-3">
+        <label asp-for="Severidad" class="form-label"></label>
+        <select asp-for="Severidad"
+                class="form-select"
+                asp-items="Html.GetEnumSelectList<Sistema_de_Ticket.Models.SeveridadTicket>()">
+        </select>
+        <span asp-validation-for="Severidad" class="text-danger"></span>
+    </div>
+
+    <!-- Estado NO se edita aquí: lo setea el servidor a Abierto -->
+    <!-- Técnico asignado (opcional) -->
+    <div class="mb-3">
+        <label class="form-label">Técnico asignado (opcional)</label>
+        <select asp-for="TecnicoAsignadoId"
+                class="form-select"
+                asp-items="@(ViewBag.Tecnicos as List<SelectListItem>)">
+            <option value="">-- Sin asignar --</option>
+        </select>
+        <span asp-validation-for="TecnicoAsignadoId" class="text-danger"></span>
+    </div>
+
+    <!-- Descripción -->
+    <div class="mb-3">
+        <label asp-for="Descripcion" class="form-label"></label>
+        <textarea asp-for="Descripcion" class="form-control" rows="4"></textarea>
+        <span asp-validation-for="Descripcion" class="text-danger"></span>
+    </div>
+
+    <!-- Notas -->
+    <div class="mb-3">
+        <label asp-for="Notas" class="form-label"></label>
+        <textarea asp-for="Notas" class="form-control" rows="3"></textarea>
+        <span asp-validation-for="Notas" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a asp-action="Index" class="btn btn-secondary">Volver</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

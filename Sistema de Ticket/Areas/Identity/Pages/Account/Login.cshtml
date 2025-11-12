@@ -1,0 +1,54 @@
+﻿@page
+@model LoginModel
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Iniciar sesión";
+}
+
+<h1 class="text-center">@ViewData["Title"]</h1>
+<p class="text-center auth-muted mb-4">Usá tu usuario y contraseña para continuar</p>
+
+<form id="account" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+
+    <!-- Usuario -->
+    <div class="mb-3">
+        <label asp-for="Input.UserName" class="form-label">Usuario</label>
+        <input asp-for="Input.UserName"
+               class="form-control"
+               autocomplete="username"
+               aria-required="true"
+               placeholder="Tu usuario" />
+        <span asp-validation-for="Input.UserName" class="text-danger"></span>
+    </div>
+
+    <!-- Contraseña -->
+    <div class="mb-3">
+        <label asp-for="Input.Password" class="form-label">Contraseña</label>
+        <input asp-for="Input.Password"
+               class="form-control"
+               autocomplete="current-password"
+               aria-required="true"
+               placeholder="Contraseña" />
+        <span asp-validation-for="Input.Password" class="text-danger"></span>
+    </div>
+
+    <!-- Recordarme -->
+    <div class="form-check mb-3">
+        <input class="form-check-input" asp-for="Input.RememberMe" />
+        <label class="form-check-label" asp-for="Input.RememberMe">Recordarme</label>
+    </div>
+
+    <!-- Botón de login -->
+    <button id="login-submit" type="submit" class="btn btn-primary w-100 mb-3">Ingresar</button>
+
+    <!-- Enlaces -->
+    <div class="d-flex justify-content-between">
+        <a id="forgot-password" asp-page="./ForgotPassword">¿Olvidaste tu contraseña?</a>
+        <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">Registrarse</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

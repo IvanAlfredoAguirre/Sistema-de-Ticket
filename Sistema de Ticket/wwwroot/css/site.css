@@ -1,0 +1,156 @@
+/* ===========================
+   Variables
+   =========================== */
+:root {
+    --sidebar-bg: #0f2d3f;
+    --sidebar-link: #cfe5f2;
+    --sidebar-active: #ffffff;
+    --sidebar-hover: #e9f4fb;
+    --content-bg: #f5f7fb;
+}
+
+/* ===========================
+   Topbar
+   =========================== */
+.topbar {
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+/* ===========================
+   Layout + Sidebar
+   =========================== */
+.layout {
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 240px;
+    min-height: 100vh;
+    position: sticky;
+    top: 0;
+    background: var(--sidebar-bg);
+    color: var(--sidebar-link);
+    padding: 1rem 0;
+    overflow-y: auto;
+}
+
+    .sidebar .nav-link {
+        border-radius: .5rem;
+        padding: .5rem .75rem;
+        color: var(--sidebar-link);
+    }
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            color: #fff !important;
+            background: rgba(255, 255, 255, .12);
+        }
+
+/* opcional si querés un fondo para el contenido */
+.content {
+    background: var(--content-bg);
+}
+
+/* ===========================
+   Cards y tablas
+   =========================== */
+.card-help {
+    background: #fff;
+    border: 0;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(15, 45, 63, .08);
+}
+
+.table thead th {
+    background: #0f2d3f;
+    color: #fff;
+    border: 0;
+}
+
+.table tbody tr:hover {
+    background: #f1f7fb;
+}
+
+/* ===========================
+   Badges
+   =========================== */
+.badge-status {
+    font-weight: 600;
+}
+
+.badge-new {
+    background: #dbeafe;
+    color: #1e3a8a;
+}
+
+.badge-replied {
+    background: #e0f2fe;
+    color: #075985;
+}
+
+.badge-closed {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-priority-high {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-priority-medium {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-priority-low {
+    background: #dcfce7;
+    color: #065f46;
+}
+
+/* ===========================
+   Filtros (botones pill)
+   =========================== */
+.filters .btn {
+    border-radius: 999px;
+}
+
+
+
+/* ===== Auth view (login/register) ===== */
+.auth-bg {
+    /* fondo con degradado + imagen opcional */
+    background: linear-gradient(180deg, rgba(15,45,63,.65), rgba(15,45,63,.65)), url("/img/login-bg.jpg") center/cover no-repeat fixed;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 420px;
+    border-radius: 16px;
+    backdrop-filter: blur(2px);
+}
+
+    .auth-card .form-control {
+        padding: .75rem .9rem;
+        border-radius: .6rem;
+    }
+
+    .auth-card .btn-primary {
+        padding: .7rem;
+        border-radius: .6rem;
+    }
+
+    .auth-card h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: .75rem;
+    }
+
+.auth-muted {
+    color: rgba(0,0,0,.55);
+    font-size: .925rem;
+}

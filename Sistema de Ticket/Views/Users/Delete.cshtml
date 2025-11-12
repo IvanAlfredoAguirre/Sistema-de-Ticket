@@ -1,0 +1,12 @@
+﻿@model Sistema_de_Ticket.Models.AppUser
+@{
+    ViewData["Title"] = "Eliminar usuario";
+}
+<h2>Eliminar usuario</h2>
+<p>¿Seguro que querés eliminar al usuario <strong>@Model.UserName</strong>?</p>
+
+<form asp-action="Delete">
+    <input type="hidden" name="id" value="@Model.Id" />
+    <button class="btn btn-danger" type="submit">Eliminar</button>
+    <a class="btn btn-secondary" asp-action="Index">Cancelar</a>
+</form>

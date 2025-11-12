@@ -1,0 +1,65 @@
+﻿@model Sistema_de_Ticket.ViewModels.CreateUserVM
+@{
+    ViewData["Title"] = "Crear usuario";
+    var roles = (List<string>)ViewBag.Roles;
+}
+
+<h2>Crear usuario</h2>
+<hr />
+
+<form asp-action="Create" method="post" id="frmCreateUser">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <div class="mb-3">
+        <label asp-for="UserName" class="form-label"></label>
+        <input asp-for="UserName" class="form-control" />
+        <span asp-validation-for="UserName" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="NombreUsuario" class="form-label"></label>
+        <input asp-for="NombreUsuario" class="form-control" />
+        <span asp-validation-for="NombreUsuario" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Email" class="form-label"></label>
+        <input asp-for="Email" class="form-control" />
+        <span asp-validation-for="Email" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Password" class="form-label"></label>
+        <input asp-for="Password" class="form-control" />
+        <span asp-validation-for="Password" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="ConfirmPassword" class="form-label"></label>
+        <input asp-for="ConfirmPassword" class="form-control" />
+        <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="RoleName" class="form-label"></label>
+        <select asp-for="RoleName" class="form-select">
+            @foreach (var r in roles)
+            {
+                <option value="@r">@r</option>
+            }
+            @* valor por defecto si no hay roles *@
+            @if (!roles.Any())
+            {
+                <option value="Usuario">Usuario</option>
+            }
+        </select>
+        <span asp-validation-for="RoleName" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a asp-action="Index" class="btn btn-secondary">Volver</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

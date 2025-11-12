@@ -1,0 +1,35 @@
+﻿@model Sistema_de_Ticket.Models.AppUser
+@{
+    ViewData["Title"] = "Editar Rol";
+    var roles = (List<string>)ViewBag.Roles;
+    var current = ((IEnumerable<string>)ViewBag.CurrentRoles).FirstOrDefault();
+}
+
+<h2>Editar Rol de @Model.UserName</h2>
+<hr />
+
+<form asp-action="EditRole" method="post">
+    <input type="hidden" name="id" value="@Model.Id" />
+
+    <div class="mb-3">
+        <label class="form-label">Rol actual:</label>
+        <input type="text" class="form-control" value="@current" readonly />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Nuevo rol:</label>
+        <select name="newRole" class="form-select">
+            @foreach (var r in roles)
+            {
+                <option value="@r" selected="@(r == current ? "selected" : null)">@r</option>
+            }
+        </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar cambios</button>
+    <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

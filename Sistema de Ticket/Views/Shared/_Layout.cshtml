@@ -1,0 +1,134 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject SignInManager<Sistema_de_Ticket.Models.AppUser> SignInManager
+@inject UserManager<Sistema_de_Ticket.Models.AppUser> UserManager
+
+@{
+    var isLogged = SignInManager.IsSignedIn(User);
+    var isSuperAdmin = isLogged && User.IsInRole("SuperAdmin");
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+
+    Func<string, string?, string> active = (ctrl, act) =>
+        currentController == ctrl && (act == null || currentAction == act) ? "active" : "";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Sistema_de_Ticket</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/Sistema_de_Ticket.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="d-md-flex layout">
+        <!-- Sidebar lateral -->
+        <aside class="sidebar bg-dark text-white d-none d-md-block">
+            <div class="p-3">
+                <a class="navbar-brand text-white fw-semibold text-decoration-none d-block mb-2"
+                   asp-controller="Tickets" asp-action="Index">
+                    Sistema_de_Ticket
+                </a>
+                <hr class="border-secondary">
+
+                <ul class="nav nav-pills flex-column gap-1">
+                    <li class="nav-item">
+                        <a class="nav-link text-white-50 @active("Tickets", "Index")"
+                           asp-controller="Tickets" asp-action="Index">
+                            Tickets
+                        </a>
+                    </li>
+
+                    @if (isSuperAdmin)
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-white-50 @active("Users", "Index")"
+                               asp-controller="Users" asp-action="Index">
+                                Usuarios
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white-50 @active("Roles", "Index")"
+                               asp-controller="Roles" asp-action="Index">
+                                Roles
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Contenido principal -->
+        <div class="flex-grow-1">
+            <!-- Topbar -->
+            <div class="topbar bg-white px-3 py-2 d-flex align-items-center justify-content-between border-bottom">
+                <div class="d-md-none">
+                    <button class="btn btn-outline-secondary"
+                            type="button"
+                            data-bs-toggle="offcanvas"
+                            data-bs-target="#mobileMenu"
+                            aria-controls="mobileMenu">
+                        Menú
+                    </button>
+                </div>
+                <div class="ms-auto">
+                    <partial name="_LoginPartial" />
+                </div>
+            </div>
+
+            <div class="container my-3">
+                @RenderBody()
+            </div>
+
+            <footer class="border-top footer text-muted">
+                <div class="container">
+                    &copy; @DateTime.Now.Year - Sistema_de_Ticket
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Menú móvil -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu" aria-labelledby="mobileMenuLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="mobileMenuLabel">Sistema_de_Ticket</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+        </div>
+        <div class="offcanvas-body">
+            <ul class="nav nav-pills flex-column gap-1">
+                <li class="nav-item">
+                    <a class="nav-link @active("Tickets", "Index")"
+                       asp-controller="Tickets" asp-action="Index" data-bs-dismiss="offcanvas">
+                        Tickets
+                    </a>
+                </li>
+
+                @if (isSuperAdmin)
+                {
+                    <li class="nav-item">
+                        <a class="nav-link @active("Users", "Index")"
+                           asp-controller="Users" asp-action="Index" data-bs-dismiss="offcanvas">
+                            Usuarios
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link @active("Roles", "Index")"
+                           asp-controller="Roles" asp-action="Index" data-bs-dismiss="offcanvas">
+                            Roles
+                        </a>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
+

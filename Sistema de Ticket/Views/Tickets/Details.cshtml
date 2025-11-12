@@ -1,0 +1,49 @@
+﻿@model Sistema_de_Ticket.Models.Ticket
+@using Sistema_de_Ticket.Models
+
+<h2>Detalle de Ticket</h2>
+<hr />
+
+<dl class="row">
+    <dt class="col-sm-2">Título</dt>
+    <dd class="col-sm-10">@Model.Titulo</dd>
+
+    <dt class="col-sm-2">Descripción</dt>
+    <dd class="col-sm-10">@Model.Descripcion</dd>
+
+    <dt class="col-sm-2">Estado</dt>
+    <dd class="col-sm-10">@Model.Estado</dd>
+
+    <dt class="col-sm-2">Severidad</dt>
+    <dd class="col-sm-10">@Model.Severidad</dd>
+
+    <dt class="col-sm-2">Creador</dt>
+    <dd class="col-sm-10">@Model.UsuarioCreador?.UserName</dd>
+
+    <dt class="col-sm-2">Técnico</dt>
+    <dd class="col-sm-10">@Model.TecnicoAsignado?.UserName</dd>
+
+    <dt class="col-sm-2">Creado</dt>
+    <dd class="col-sm-10">@Model.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+
+    <dt class="col-sm-2">Cierre</dt>
+    <dd class="col-sm-10">@Model.FechaCierre?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd>
+
+    <dt class="col-sm-2">Notas</dt>
+    <dd class="col-sm-10">@Model.Notas</dd>
+</dl>
+
+<div class="d-flex gap-2">
+    <a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model.Id">Editar</a>
+    <a class="btn btn-secondary" asp-action="Index">Volver</a>
+
+    @* Botón para RESOLVER (solo si aún no está Resuelto) *@
+    @if (Model.Estado != EstadoTicket.Resuelto)
+    {
+        <form asp-action="Resolver" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button class="btn btn-success" type="submit">Resolver ticket</button>
+        </form>
+    }
+</div>

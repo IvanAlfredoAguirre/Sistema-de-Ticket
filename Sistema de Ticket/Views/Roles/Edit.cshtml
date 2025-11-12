@@ -1,0 +1,14 @@
+﻿@model Sistema_de_Ticket.ViewModels.RoleEditVM
+@{
+    ViewData["Title"] = "Editar rol";
+}
+<h2>@ViewData["Title"]</h2>
+<form asp-action="Edit" method="post">
+    <input type="hidden" asp-for="Id" />
+    <partial name="_Form" model="Model" />
+    <button class="btn btn-primary" type="submit">Guardar</button>
+    <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+</form>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

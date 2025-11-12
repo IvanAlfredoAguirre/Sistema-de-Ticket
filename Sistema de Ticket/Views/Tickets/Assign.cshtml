@@ -1,0 +1,71 @@
+﻿@model Sistema_de_Ticket.ViewModels.AssignTicketVM
+@{
+    ViewData["Title"] = "Asignar ticket";
+}
+
+<h2>Asignar ticket</h2>
+<hr />
+
+<form method="get" asp-action="Assign" asp-controller="Tickets" class="row g-2 mb-3">
+    <input type="hidden" name="id" value="@Model.TicketId" />
+    <div class="col-12 col-md-8">
+        <label class="form-label">Buscar usuario</label>
+        <input type="text" class="form-control" name="q" value="@(Model.Query ?? "")" autocomplete="off" />
+    </div>
+    <div class="col-12 col-md-4 d-flex align-items-end gap-2">
+        <button type="submit" class="btn btn-secondary">Buscar</button>
+
+        <form method="post" asp-action="Assign" asp-controller="Tickets" asp-route-id="@Model.TicketId" class="d-inline">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="quickAssignMe" value="1" />
+            <button type="submit" class="btn btn-primary">Asignarme a mí</button>
+        </form>
+    </div>
+</form>
+
+<div class="mb-3">
+    <strong>Asignado actualmente:</strong>
+    @(string.IsNullOrWhiteSpace(Model.CurrentAssignedUserName) ? "Sin asignar" : Model.CurrentAssignedUserName)
+</div>
+
+@if (Model.Options != null && Model.Options.Any())
+{
+    <div class="card-help p-0">
+        <div class="p-3 border-bottom fw-semibold">Resultados</div>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th style="width: 140px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var opt in Model.Options)
+                    {
+                        <tr>
+                            <td>@opt.Text</td>
+                            <td class="text-end">
+                                <form method="post" asp-action="Assign" asp-controller="Tickets" asp-route-id="@Model.TicketId" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="SelectedUserId" value="@opt.Value" />
+                                    <button type="submit" class="btn btn-success btn-sm">Asignar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else if (!string.IsNullOrWhiteSpace(Model.Query))
+{
+    <div class="alert alert-warning">No se encontraron usuarios para “@Model.Query”.</div>
+}
+
+<a asp-action="Index" asp-controller="Tickets" class="btn btn-outline-secondary mt-3">Volver</a>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
