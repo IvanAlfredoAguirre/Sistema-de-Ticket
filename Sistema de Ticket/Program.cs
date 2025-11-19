@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Sistema_de_Ticket.Data;
 using Sistema_de_Ticket.Models;
-using Sistema_de_Ticket.Auth; // <-- nuevo
+using Sistema_de_Ticket.Auth; 
 
 // 1) EF Core (SQL Server)
 var builder = WebApplication.CreateBuilder(args);

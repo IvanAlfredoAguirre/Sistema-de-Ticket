@@ -1,10 +1,24 @@
 ﻿@using Microsoft.AspNetCore.Identity
-@inject SignInManager<Sistema_de_Ticket.Models.AppUser> SignInManager
-@inject UserManager<Sistema_de_Ticket.Models.AppUser> UserManager
+@using Sistema_de_Ticket.Models
+@using Sistema_de_Ticket.Auth
+
+@inject SignInManager<AppUser> SignInManager
+@inject UserManager<AppUser> UserManager
 
 @{
     var isLogged = SignInManager.IsSignedIn(User);
     var isSuperAdmin = isLogged && User.IsInRole("SuperAdmin");
+
+    // Claims de permisos
+    var canVerUsuarios  = isLogged && User.HasClaim(AuthorizationConfig.PermissionClaimType, Permisos.UsuariosVer);
+    var canVerRoles     = isLogged && User.HasClaim(AuthorizationConfig.PermissionClaimType, Permisos.RolesVer);
+    var canVerReportes  = isLogged && User.HasClaim(AuthorizationConfig.PermissionClaimType, Permisos.ReportesVer);
+
+    // Lógica final: SuperAdmin ve todo aunque no tenga claims cargados
+    var showUsuarios  = isSuperAdmin || canVerUsuarios;
+    var showRoles     = isSuperAdmin || canVerRoles;
+    var showReportes  = isSuperAdmin || canVerReportes;
+
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
     var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
 
@@ -13,7 +27,7 @@
 }
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -32,9 +46,10 @@
                    asp-controller="Tickets" asp-action="Index">
                     Sistema_de_Ticket
                 </a>
-                <hr class="border-secondary">
+                <hr class="border-secondary" />
 
                 <ul class="nav nav-pills flex-column gap-1">
+                    <!-- TICKETS -->
                     <li class="nav-item">
                         <a class="nav-link text-white-50 @active("Tickets", "Index")"
                            asp-controller="Tickets" asp-action="Index">
@@ -42,7 +57,19 @@
                         </a>
                     </li>
 
-                    @if (isSuperAdmin)
+                    <!-- REPORTES (según permisos) -->
+                    @if (showReportes)
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-white-50 @active("Reportes", "Index")"
+                               asp-controller="Reportes" asp-action="Index">
+                                Reportes
+                            </a>
+                        </li>
+                    }
+
+                    <!-- USUARIOS (según permisos) -->
+                    @if (showUsuarios)
                     {
                         <li class="nav-item">
                             <a class="nav-link text-white-50 @active("Users", "Index")"
@@ -50,6 +77,11 @@
                                 Usuarios
                             </a>
                         </li>
+                    }
+
+                    <!-- ROLES (según permisos) -->
+                    @if (showRoles)
+                    {
                         <li class="nav-item">
                             <a class="nav-link text-white-50 @active("Roles", "Index")"
                                asp-controller="Roles" asp-action="Index">
@@ -99,6 +131,7 @@
         </div>
         <div class="offcanvas-body">
             <ul class="nav nav-pills flex-column gap-1">
+                <!-- TICKETS -->
                 <li class="nav-item">
                     <a class="nav-link @active("Tickets", "Index")"
                        asp-controller="Tickets" asp-action="Index" data-bs-dismiss="offcanvas">
@@ -106,7 +139,19 @@
                     </a>
                 </li>
 
-                @if (isSuperAdmin)
+                <!-- REPORTES -->
+                @if (showReportes)
+                {
+                    <li class="nav-item">
+                        <a class="nav-link @active("Reportes", "Index")"
+                           asp-controller="Reportes" asp-action="Index" data-bs-dismiss="offcanvas">
+                            Reportes
+                        </a>
+                    </li>
+                }
+
+                <!-- USUARIOS -->
+                @if (showUsuarios)
                 {
                     <li class="nav-item">
                         <a class="nav-link @active("Users", "Index")"
@@ -114,6 +159,11 @@
                             Usuarios
                         </a>
                     </li>
+                }
+
+                <!-- ROLES -->
+                @if (showRoles)
+                {
                     <li class="nav-item">
                         <a class="nav-link @active("Roles", "Index")"
                            asp-controller="Roles" asp-action="Index" data-bs-dismiss="offcanvas">
