@@ -1,14 +1,18 @@
 ﻿@model Sistema_de_Ticket.Models.Ticket
 @using Microsoft.AspNetCore.Mvc.Rendering
+
 @{
     ViewData["Title"] = "Editar Ticket";
-    var tecnicos = (List<SelectListItem>)ViewBag.Tecnicos;
+
+    // Lista de técnicos que viene del controlador
+    var tecnicos = ViewBag.Tecnicos as List<SelectListItem> ?? new List<SelectListItem>();
 }
 
 <h2>Editar Ticket</h2>
 <hr />
 
 <form asp-action="Edit" method="post">
+    @* resumen de validaciones *@
     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
     <input type="hidden" asp-for="Id" />
 
@@ -26,27 +30,64 @@
 
     <div class="mb-3">
         <label class="form-label">Estado</label>
-        <select asp-for="Estado" class="form-select"
-                asp-items="Html.GetEnumSelectList<Sistema_de_Ticket.Models.EstadoTicket>()"></select>
+        <select asp-for="Estado"
+                class="form-select"
+                asp-items="Html.GetEnumSelectList<Sistema_de_Ticket.Models.EstadoTicket>()">
+        </select>
+        <span asp-validation-for="Estado" class="text-danger"></span>
     </div>
 
     <div class="mb-3">
         <label class="form-label">Severidad</label>
-        <select asp-for="Severidad" class="form-select"
-                asp-items="Html.GetEnumSelectList<Sistema_de_Ticket.Models.SeveridadTicket>()"></select>
+        <select asp-for="Severidad"
+                class="form-select"
+                asp-items="Html.GetEnumSelectList<Sistema_de_Ticket.Models.SeveridadTicket>()">
+        </select>
+        <span asp-validation-for="Severidad" class="text-danger"></span>
     </div>
 
     <div class="mb-3">
         <label class="form-label">Técnico</label>
-        <select asp-for="TecnicoAsignadoId" class="form-select"
-                asp-items="@(new SelectList(tecnicos, "Value", "Text"))">
+        <select asp-for="TecnicoAsignadoId" class="form-select">
             <option value="">-- Sin asignar --</option>
+            @foreach (var t in tecnicos)
+            {
+                <option value="@t.Value"
+                        selected="@(Model.TecnicoAsignadoId == t.Value ? "selected" : null)">
+                    @t.Text
+                </option>
+            }
         </select>
+        <span asp-validation-for="TecnicoAsignadoId" class="text-danger"></span>
     </div>
 
+    @* Historial de notas (texto guardado) *@
+    @if (!string.IsNullOrWhiteSpace(Model.Notas))
+    {
+        <div class="mb-3">
+            <label class="form-label">Historial de notas</label>
+            <div class="border rounded bg-light p-2" style="max-height:200px; overflow-y:auto;">
+                @{
+                    var lineas = Model.Notas
+                    .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+                    .Reverse();   // últimas notas arriba
+                }
+                @foreach (var linea in lineas)
+                {
+                    <div class="mb-1">
+                        @linea
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
     <div class="mb-3">
-        <label asp-for="Notas" class="form-label"></label>
+        <label asp-for="Notas" class="form-label">Notas (agrega comentarios / avances)</label>
         <textarea asp-for="Notas" class="form-control" rows="3"></textarea>
+        <small class="text-muted">
+            Para resolver/cerrar el ticket debe existir al menos una nota.
+        </small>
         <span asp-validation-for="Notas" class="text-danger"></span>
     </div>
 

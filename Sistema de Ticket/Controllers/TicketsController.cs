@@ -37,6 +37,7 @@ namespace Sistema_de_Ticket.Controllers
                 .Include(t => t.UsuarioCreador)
                 .Include(t => t.TecnicoAsignado);
 
+            // Filtro por rol
             if (!roles.Contains("SuperAdmin"))
             {
                 if (roles.Contains("Técnico") || roles.Contains("Tecnico") || roles.Contains("Soporte"))
@@ -45,18 +46,28 @@ namespace Sistema_de_Ticket.Controllers
                     q = q.Where(t => t.UsuarioCreadorId == user.Id);
             }
 
+            // Filtro por estado
             if (!string.IsNullOrWhiteSpace(filtroEstado) &&
                 Enum.TryParse<EstadoTicket>(filtroEstado, true, out var est))
+            {
                 q = q.Where(t => t.Estado == est);
+            }
 
+            // Filtro por severidad
             if (!string.IsNullOrWhiteSpace(filtroSeveridad) &&
                 Enum.TryParse<SeveridadTicket>(filtroSeveridad, true, out var sev))
+            {
                 q = q.Where(t => t.Severidad == sev);
+            }
 
-            var enCurso = await q.CountAsync(t => t.Estado == EstadoTicket.Abierto || t.Estado == EstadoTicket.EnProceso);
+            // Métricas
+            var enCurso = await q.CountAsync(t =>
+                t.Estado == EstadoTicket.Abierto || t.Estado == EstadoTicket.EnProceso);
+
             var resueltos = await q.CountAsync(t => t.Estado == EstadoTicket.Resuelto);
             var sinAsignar = await q.CountAsync(t => t.TecnicoAsignadoId == null);
 
+            // Listas
             var asignados = await q.Where(t => t.TecnicoAsignadoId != null)
                                    .OrderByDescending(t => t.FechaCreacion)
                                    .ToListAsync();
@@ -101,7 +112,11 @@ namespace Sistema_de_Ticket.Controllers
         {
             await CargarCombosTecnicos();
             ViewBag.Severidades = new SelectList(Enum.GetValues(typeof(SeveridadTicket)));
-            return View(new Ticket { Estado = EstadoTicket.Abierto, Severidad = SeveridadTicket.Media });
+            return View(new Ticket
+            {
+                Estado = EstadoTicket.Abierto,
+                Severidad = SeveridadTicket.Media
+            });
         }
 
         [HttpPost]
@@ -111,7 +126,7 @@ namespace Sistema_de_Ticket.Controllers
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return Challenge();
 
-            // Ignorar campos seteados por el server
+            // Ignorar campos seteados por el servidor
             ModelState.Remove(nameof(Ticket.UsuarioCreadorId));
             ModelState.Remove(nameof(Ticket.Estado));
             ModelState.Remove(nameof(Ticket.FechaCreacion));
@@ -156,6 +171,18 @@ namespace Sistema_de_Ticket.Controllers
         {
             if (id != ticket.Id) return NotFound();
 
+            // Quitamos del ModelState lo que el usuario no edita
+            ModelState.Remove(nameof(Ticket.UsuarioCreadorId));
+            ModelState.Remove(nameof(Ticket.UsuarioCreador));
+            ModelState.Remove(nameof(Ticket.FechaCreacion));
+
+            // Regla: para marcar como RESUELTO o CERRADO debe haber al menos una nota
+            if ((ticket.Estado == EstadoTicket.Resuelto || ticket.Estado == EstadoTicket.Cerrado)
+                && string.IsNullOrWhiteSpace(ticket.Notas))
+            {
+                ModelState.AddModelError("Notas", "Debes agregar al menos una nota para resolver/cerrar el ticket.");
+            }
+
             if (!ModelState.IsValid)
             {
                 await CargarCombosTecnicos();
@@ -165,16 +192,22 @@ namespace Sistema_de_Ticket.Controllers
             }
 
             var dbTicket = await _context.Tickets.FirstAsync(t => t.Id == id);
+
             dbTicket.Titulo = ticket.Titulo;
             dbTicket.Descripcion = ticket.Descripcion;
             dbTicket.Estado = ticket.Estado;
             dbTicket.Severidad = ticket.Severidad;
             dbTicket.TecnicoAsignadoId = ticket.TecnicoAsignadoId;
             dbTicket.Notas = ticket.Notas;
-            dbTicket.FechaCierre = (dbTicket.Estado == EstadoTicket.Cerrado) ? DateTime.UtcNow : null;
+
+            // Si está resuelto o cerrado, seteamos fecha de cierre
+            if (dbTicket.Estado == EstadoTicket.Resuelto || dbTicket.Estado == EstadoTicket.Cerrado)
+                dbTicket.FechaCierre = DateTime.UtcNow;
+            else
+                dbTicket.FechaCierre = null;
 
             await _context.SaveChangesAsync();
-            TempData["ok"] = "Ticket actualizado.";
+            TempData["ok"] = "Ticket actualizado correctamente.";
             return RedirectToAction(nameof(Index));
         }
 
@@ -185,6 +218,13 @@ namespace Sistema_de_Ticket.Controllers
         {
             var ticket = await _context.Tickets.FindAsync(id);
             if (ticket == null) return NotFound();
+
+            // No se puede resolver si no tiene notas
+            if (string.IsNullOrWhiteSpace(ticket.Notas))
+            {
+                TempData["err"] = "Debes agregar al menos una nota antes de marcar el ticket como RESUELTO.";
+                return RedirectToAction(nameof(Edit), new { id });
+            }
 
             if (ticket.Estado != EstadoTicket.Resuelto)
             {
@@ -228,7 +268,8 @@ namespace Sistema_de_Ticket.Controllers
             }
             else
             {
-                users = users.Where(u => false); // sin query, no listamos todo
+                // sin query, no listamos todo
+                users = users.Where(u => false);
             }
 
             vm.Options = await users
@@ -309,18 +350,15 @@ namespace Sistema_de_Ticket.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        // ============ COMBOS TÉCNICO ============
         private async Task CargarCombosTecnicos()
         {
-            var rolesValidos = new[] { "Técnico", "Tecnico", "Soporte" };
-            var usuarios = new List<AppUser>();
+            // AHORA: todos los usuarios, no solo rol Técnico
+            var usuarios = await _userManager.Users
+                .OrderBy(u => u.UserName)
+                .ToListAsync();
 
-            foreach (var rol in rolesValidos)
-            {
-                var enRol = await _userManager.GetUsersInRoleAsync(rol);
-                usuarios.AddRange(enRol);
-            }
-
-            ViewBag.Tecnicos = usuarios.GroupBy(u => u.Id).Select(g => g.First())
+            ViewBag.Tecnicos = usuarios
                 .Select(u => new SelectListItem
                 {
                     Value = u.Id,
