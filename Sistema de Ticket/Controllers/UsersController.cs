@@ -5,10 +5,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Sistema_de_Ticket.Models;
 using Sistema_de_Ticket.ViewModels;
+using Sistema_de_Ticket.Auth;   // 👈 IMPORTANTE
 
 namespace Sistema_de_Ticket.Controllers
 {
-    [Authorize(Roles = "SuperAdmin")]
+    [Authorize]   // 👈 Ahora requiere login, no rol fijo
     public class UsersController : Controller
     {
         private readonly UserManager<AppUser> _userManager;
@@ -20,9 +21,25 @@ namespace Sistema_de_Ticket.Controllers
             _roleManager = roleManager;
         }
 
-        // GET: /Users
+        // ============================================================
+        //  MÉTODO CENTRAL PARA VALIDAR PERMISOS
+        // ============================================================
+        private bool TienePermiso(string permiso)
+        {
+            if (User.IsInRole("SuperAdmin"))
+                return true;
+
+            return User.HasClaim(AuthorizationConfig.PermissionClaimType, permiso);
+        }
+
+        // ============================================================
+        // LISTADO
+        // ============================================================
         public async Task<IActionResult> Index()
         {
+            if (!TienePermiso(Permisos.UsuariosVer))
+                return Forbid();
+
             var users = _userManager.Users.ToList();
             var model = new List<dynamic>();
 
@@ -42,25 +59,34 @@ namespace Sistema_de_Ticket.Controllers
             return View(model);
         }
 
-        // GET: /Users/Create
+        // ============================================================
+        // CREAR (GET)
+        // ============================================================
         public IActionResult Create()
         {
+            if (!TienePermiso(Permisos.UsuariosCrear))
+                return Forbid();
+
             ViewBag.Roles = _roleManager.Roles.Select(r => r.Name!).OrderBy(n => n).ToList();
             return View(new CreateUserVM());
         }
 
-        // POST: /Users/Create
+        // ============================================================
+        // CREAR (POST)
+        // ============================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(CreateUserVM model)
         {
+            if (!TienePermiso(Permisos.UsuariosCrear))
+                return Forbid();
+
             if (!ModelState.IsValid)
             {
                 ViewBag.Roles = _roleManager.Roles.Select(r => r.Name!).OrderBy(n => n).ToList();
                 return View(model);
             }
 
-            // Unicidad
             if (await _userManager.FindByNameAsync(model.UserName) != null)
                 ModelState.AddModelError(nameof(model.UserName), "Ya existe un usuario con ese nombre.");
 
@@ -86,13 +112,12 @@ namespace Sistema_de_Ticket.Controllers
             if (!result.Succeeded)
             {
                 foreach (var e in result.Errors)
-                    ModelState.AddModelError(string.Empty, e.Description);
+                    ModelState.AddModelError("", e.Description);
 
                 ViewBag.Roles = _roleManager.Roles.Select(r => r.Name!).OrderBy(n => n).ToList();
                 return View(model);
             }
 
-            // Rol
             if (!string.IsNullOrWhiteSpace(model.RoleName))
             {
                 if (!await _roleManager.RoleExistsAsync(model.RoleName))
@@ -105,14 +130,19 @@ namespace Sistema_de_Ticket.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // GET: /Users/Edit/ID
+        // ============================================================
+        // EDITAR (GET)
+        // ============================================================
         public async Task<IActionResult> Edit(string id)
         {
+            if (!TienePermiso(Permisos.UsuariosEditar))
+                return Forbid();
+
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound();
 
             var rolesUsuario = await _userManager.GetRolesAsync(user);
-            var rolesDisponibles = _roleManager.Roles.Select(r => r.Name!).OrderBy(n => n).ToList();
+            var roles = _roleManager.Roles.Select(r => r.Name!).OrderBy(n => n).ToList();
 
             var vm = new EditUserVM
             {
@@ -121,38 +151,34 @@ namespace Sistema_de_Ticket.Controllers
                 NombreUsuario = user.NombreUsuario,
                 Email = user.Email,
                 SelectedRole = rolesUsuario.FirstOrDefault(),
-                Roles = rolesDisponibles
+                Roles = roles
             };
 
             return View(vm);
         }
 
-        // POST: /Users/Edit
+        // ============================================================
+        // EDITAR (POST)
+        // ============================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(EditUserVM vm)
         {
+            if (!TienePermiso(Permisos.UsuariosEditar))
+                return Forbid();
+
             var user = await _userManager.FindByIdAsync(vm.Id);
             if (user == null) return NotFound();
 
-            // Unicidad UserName
             var byName = await _userManager.FindByNameAsync(vm.UserName);
             if (byName != null && byName.Id != user.Id)
                 ModelState.AddModelError(nameof(vm.UserName), "Ya existe un usuario con ese nombre.");
 
-            // Unicidad Email
             if (!string.IsNullOrWhiteSpace(vm.Email))
             {
                 var byEmail = await _userManager.FindByEmailAsync(vm.Email);
                 if (byEmail != null && byEmail.Id != user.Id)
                     ModelState.AddModelError(nameof(vm.Email), "Ya existe un usuario con ese email.");
-            }
-
-            // Rol válido si viene
-            if (!string.IsNullOrWhiteSpace(vm.SelectedRole) &&
-                !_roleManager.Roles.Any(r => r.Name == vm.SelectedRole))
-            {
-                ModelState.AddModelError(nameof(vm.SelectedRole), "El rol seleccionado no existe.");
             }
 
             if (!ModelState.IsValid)
@@ -161,7 +187,6 @@ namespace Sistema_de_Ticket.Controllers
                 return View(vm);
             }
 
-            // Datos básicos
             user.UserName = vm.UserName;
             user.NombreUsuario = string.IsNullOrWhiteSpace(vm.NombreUsuario) ? vm.UserName : vm.NombreUsuario;
             user.Email = string.IsNullOrWhiteSpace(vm.Email) ? null : vm.Email;
@@ -169,32 +194,35 @@ namespace Sistema_de_Ticket.Controllers
             var upd = await _userManager.UpdateAsync(user);
             if (!upd.Succeeded)
             {
-                foreach (var e in upd.Errors) ModelState.AddModelError("", e.Description);
+                foreach (var e in upd.Errors)
+                    ModelState.AddModelError("", e.Description);
+
                 vm.Roles = _roleManager.Roles.Select(r => r.Name!).OrderBy(n => n).ToList();
                 return View(vm);
             }
 
-            // Cambio de rol (opcional)
             if (!string.IsNullOrWhiteSpace(vm.SelectedRole))
             {
                 if (!await _roleManager.RoleExistsAsync(vm.SelectedRole))
                     await _roleManager.CreateAsync(new IdentityRole(vm.SelectedRole));
 
-                var rolesActuales = await _userManager.GetRolesAsync(user);
-                if (rolesActuales.Any())
-                    await _userManager.RemoveFromRolesAsync(user, rolesActuales);
+                var currentRoles = await _userManager.GetRolesAsync(user);
+                if (currentRoles.Any())
+                    await _userManager.RemoveFromRolesAsync(user, currentRoles);
 
                 await _userManager.AddToRoleAsync(user, vm.SelectedRole);
             }
 
-            // Cambio de contraseña (opcional)
             if (!string.IsNullOrWhiteSpace(vm.NewPassword))
             {
                 var token = await _userManager.GeneratePasswordResetTokenAsync(user);
                 var passRes = await _userManager.ResetPasswordAsync(user, token, vm.NewPassword);
+
                 if (!passRes.Succeeded)
                 {
-                    foreach (var e in passRes.Errors) ModelState.AddModelError("", e.Description);
+                    foreach (var e in passRes.Errors)
+                        ModelState.AddModelError("", e.Description);
+
                     vm.Roles = _roleManager.Roles.Select(r => r.Name!).OrderBy(n => n).ToList();
                     return View(vm);
                 }
@@ -204,60 +232,38 @@ namespace Sistema_de_Ticket.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // Acciones para edición de rol separada (opcional). Puedes eliminarlas si no las usas.
-        public async Task<IActionResult> EditRole(string id)
-        {
-            var user = await _userManager.FindByIdAsync(id);
-            if (user == null) return NotFound();
-
-            var userRoles = await _userManager.GetRolesAsync(user);
-            var roles = _roleManager.Roles.Select(r => r.Name!).OrderBy(n => n).ToList();
-
-            ViewBag.Roles = roles;
-            ViewBag.CurrentRoles = userRoles;
-
-            return View(user);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> EditRole(string id, string newRole)
-        {
-            var user = await _userManager.FindByIdAsync(id);
-            if (user == null) return NotFound();
-
-            if (!await _roleManager.RoleExistsAsync(newRole))
-                await _roleManager.CreateAsync(new IdentityRole(newRole));
-
-            var old = await _userManager.GetRolesAsync(user);
-            if (old.Any())
-                await _userManager.RemoveFromRolesAsync(user, old);
-
-            await _userManager.AddToRoleAsync(user, newRole);
-
-            TempData["ok"] = $"Rol de {user.UserName} actualizado a {newRole}.";
-            return RedirectToAction(nameof(Index));
-        }
-
-        // GET: /Users/Delete/ID
+        // ============================================================
+        // ELIMINAR (GET)
+        // ============================================================
         public async Task<IActionResult> Delete(string id)
         {
+            if (!TienePermiso(Permisos.UsuariosEliminar))
+                return Forbid();
+
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound();
+
             return View(user);
         }
 
-        // POST: /Users/Delete/ID
+        // ============================================================
+        // ELIMINAR (POST)
+        // ============================================================
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(string id)
         {
+            if (!TienePermiso(Permisos.UsuariosEliminar))
+                return Forbid();
+
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound();
 
             var res = await _userManager.DeleteAsync(user);
+
             TempData[res.Succeeded ? "ok" : "err"] =
-                res.Succeeded ? "Usuario eliminado" : string.Join(",", res.Errors.Select(e => e.Description));
+                res.Succeeded ? "Usuario eliminado" : string.Join(", ", res.Errors.Select(e => e.Description));
+
             return RedirectToAction(nameof(Index));
         }
     }
