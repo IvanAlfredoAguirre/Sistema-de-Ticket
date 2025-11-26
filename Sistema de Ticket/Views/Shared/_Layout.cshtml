@@ -9,15 +9,13 @@
     var isLogged = SignInManager.IsSignedIn(User);
     var isSuperAdmin = isLogged && User.IsInRole("SuperAdmin");
 
-    // Claims de permisos
-    var canVerUsuarios  = isLogged && User.HasClaim(AuthorizationConfig.PermissionClaimType, Permisos.UsuariosVer);
-    var canVerRoles     = isLogged && User.HasClaim(AuthorizationConfig.PermissionClaimType, Permisos.RolesVer);
-    var canVerReportes  = isLogged && User.HasClaim(AuthorizationConfig.PermissionClaimType, Permisos.ReportesVer);
+    var canVerUsuarios = isLogged && User.HasClaim(AuthorizationConfig.PermissionClaimType, Permisos.UsuariosVer);
+    var canVerRoles = isLogged && User.HasClaim(AuthorizationConfig.PermissionClaimType, Permisos.RolesVer);
+    var canVerReportes = isLogged && User.HasClaim(AuthorizationConfig.PermissionClaimType, Permisos.ReportesVer);
 
-    // Lógica final: SuperAdmin ve todo aunque no tenga claims cargados
-    var showUsuarios  = isSuperAdmin || canVerUsuarios;
-    var showRoles     = isSuperAdmin || canVerRoles;
-    var showReportes  = isSuperAdmin || canVerReportes;
+    var showUsuarios = isSuperAdmin || canVerUsuarios;
+    var showRoles = isSuperAdmin || canVerRoles;
+    var showReportes = isSuperAdmin || canVerReportes;
 
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
     var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
@@ -37,18 +35,20 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Sistema_de_Ticket.styles.css" asp-append-version="true" />
 </head>
+
 <body>
     <div class="d-md-flex layout">
-        <!-- Sidebar lateral -->
+
+        <!-- SIDEBAR -->
         <aside class="sidebar bg-dark text-white d-none d-md-block">
             <div class="p-3">
-                <a class="navbar-brand text-white fw-semibold text-decoration-none d-block mb-2"
-                   asp-controller="Tickets" asp-action="Index">
+                <a asp-controller="Tickets" asp-action="Index" class="navbar-brand text-white fw-semibold text-decoration-none d-block mb-2">
                     Sistema_de_Ticket
                 </a>
                 <hr class="border-secondary" />
 
                 <ul class="nav nav-pills flex-column gap-1">
+
                     <!-- TICKETS -->
                     <li class="nav-item">
                         <a class="nav-link text-white-50 @active("Tickets", "Index")"
@@ -57,7 +57,7 @@
                         </a>
                     </li>
 
-                    <!-- REPORTES (según permisos) -->
+                    <!-- REPORTES -->
                     @if (showReportes)
                     {
                         <li class="nav-item">
@@ -68,7 +68,7 @@
                         </li>
                     }
 
-                    <!-- USUARIOS (según permisos) -->
+                    <!-- USUARIOS -->
                     @if (showUsuarios)
                     {
                         <li class="nav-item">
@@ -79,7 +79,7 @@
                         </li>
                     }
 
-                    <!-- ROLES (según permisos) -->
+                    <!-- ROLES -->
                     @if (showRoles)
                     {
                         <li class="nav-item">
@@ -93,24 +93,23 @@
             </div>
         </aside>
 
-        <!-- Contenido principal -->
+        <!-- CONTENIDO PRINCIPAL -->
         <div class="flex-grow-1">
-            <!-- Topbar -->
+
+            <!-- TOPBAR -->
             <div class="topbar bg-white px-3 py-2 d-flex align-items-center justify-content-between border-bottom">
                 <div class="d-md-none">
-                    <button class="btn btn-outline-secondary"
-                            type="button"
-                            data-bs-toggle="offcanvas"
-                            data-bs-target="#mobileMenu"
-                            aria-controls="mobileMenu">
+                    <button class="btn btn-outline-secondary" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
                         Menú
                     </button>
                 </div>
+
                 <div class="ms-auto">
                     <partial name="_LoginPartial" />
                 </div>
             </div>
 
+            <!-- AQUI DEBE IR SIEMPRE RenderBody -->
             <div class="container my-3">
                 @RenderBody()
             </div>
@@ -123,50 +122,47 @@
         </div>
     </div>
 
-    <!-- Menú móvil -->
-    <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu" aria-labelledby="mobileMenuLabel">
+    <!-- MENU MOVIL -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu">
         <div class="offcanvas-header">
-            <h5 class="offcanvas-title" id="mobileMenuLabel">Sistema_de_Ticket</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+            <h5 class="offcanvas-title">Sistema_de_Ticket</h5>
+            <button class="btn-close" data-bs-dismiss="offcanvas"></button>
         </div>
+
         <div class="offcanvas-body">
             <ul class="nav nav-pills flex-column gap-1">
-                <!-- TICKETS -->
                 <li class="nav-item">
                     <a class="nav-link @active("Tickets", "Index")"
-                       asp-controller="Tickets" asp-action="Index" data-bs-dismiss="offcanvas">
+                       asp-controller="Tickets" asp-action="Index">
                         Tickets
                     </a>
                 </li>
 
-                <!-- REPORTES -->
                 @if (showReportes)
                 {
                     <li class="nav-item">
                         <a class="nav-link @active("Reportes", "Index")"
-                           asp-controller="Reportes" asp-action="Index" data-bs-dismiss="offcanvas">
+                           asp-controller="Reportes" asp-action="Index">
                             Reportes
                         </a>
                     </li>
                 }
 
-                <!-- USUARIOS -->
                 @if (showUsuarios)
                 {
                     <li class="nav-item">
                         <a class="nav-link @active("Users", "Index")"
-                           asp-controller="Users" asp-action="Index" data-bs-dismiss="offcanvas">
+                           asp-controller="Users" asp-action="Index">
                             Usuarios
                         </a>
                     </li>
                 }
 
-                <!-- ROLES -->
                 @if (showRoles)
                 {
                     <li class="nav-item">
                         <a class="nav-link @active("Roles", "Index")"
-                           asp-controller="Roles" asp-action="Index" data-bs-dismiss="offcanvas">
+                           asp-controller="Roles" asp-action="Index">
                             Roles
                         </a>
                     </li>
@@ -178,7 +174,7 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
-    @await RenderSectionAsync("Scripts", required: false)
+
+    @RenderSection("Scripts", required: false)
 </body>
 </html>
-

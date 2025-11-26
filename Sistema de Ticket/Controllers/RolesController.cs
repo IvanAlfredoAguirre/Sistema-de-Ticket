@@ -10,6 +10,7 @@ using System.Collections.Generic;
 
 namespace Sistema_de_Ticket.Controllers
 {
+    // SOLO SuperAdmin puede administrar Roles
     [Authorize(Roles = "SuperAdmin")]
     public class RolesController : Controller
     {
@@ -20,7 +21,9 @@ namespace Sistema_de_Ticket.Controllers
             _roleManager = roleManager;
         }
 
-        // GET: /Roles
+        // ======================================================================================
+        // LISTADO
+        // ======================================================================================
         public IActionResult Index()
         {
             var roles = _roleManager.Roles
@@ -30,53 +33,69 @@ namespace Sistema_de_Ticket.Controllers
             return View(roles);
         }
 
-        // GET: /Roles/Create
+        // ======================================================================================
+        // CREAR (GET)
+        // ======================================================================================
         public IActionResult Create()
         {
             var vm = new RoleEditVM
             {
                 Permisos = Permisos.Todos
-                    .Select(p => new PermisoItemVM { Codigo = p, Titulo = p })
-                    .ToList()
+                    .Select(p => new PermisoItemVM
+                    {
+                        Codigo = p,
+                        Titulo = FormatearPermiso(p),
+                        Seleccionado = false
+                    }).ToList()
             };
             return View(vm);
         }
 
-        // POST: /Roles/Create
+        // ======================================================================================
+        // CREAR (POST)
+        // ======================================================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(RoleEditVM vm)
         {
-            if (vm.Permisos == null)
-                vm.Permisos = new List<PermisoItemVM>();
+            vm.Permisos ??= new List<PermisoItemVM>();
 
             if (!ModelState.IsValid)
             {
-                if (vm.Permisos.Count == 0)
-                    vm.Permisos = Permisos.Todos.Select(p => new PermisoItemVM { Codigo = p, Titulo = p }).ToList();
+                vm.Permisos = Permisos.Todos
+                    .Select(p => new PermisoItemVM { Codigo = p, Titulo = FormatearPermiso(p) })
+                    .ToList();
 
                 return View(vm);
             }
 
             var role = new IdentityRole(vm.Name);
             var res = await _roleManager.CreateAsync(role);
+
             if (!res.Succeeded)
             {
-                foreach (var e in res.Errors) ModelState.AddModelError("", e.Description);
-                if (vm.Permisos.Count == 0)
-                    vm.Permisos = Permisos.Todos.Select(p => new PermisoItemVM { Codigo = p, Titulo = p }).ToList();
+                foreach (var e in res.Errors)
+                    ModelState.AddModelError("", e.Description);
+
+                vm.Permisos = Permisos.Todos
+                    .Select(p => new PermisoItemVM { Codigo = p, Titulo = FormatearPermiso(p) })
+                    .ToList();
+
                 return View(vm);
             }
 
             var seleccionados = vm.Permisos.Where(x => x.Seleccionado).Select(x => x.Codigo);
+
             foreach (var p in seleccionados)
                 await _roleManager.AddClaimAsync(role, new Claim(AuthorizationConfig.PermissionClaimType, p));
 
-            TempData["ok"] = "Rol creado.";
+            TempData["ok"] = "Rol creado correctamente.";
             return RedirectToAction(nameof(Index));
         }
 
-        // GET: /Roles/Edit/ID
+        // ======================================================================================
+        // EDITAR (GET)
+        // ======================================================================================
         public async Task<IActionResult> Edit(string id)
         {
             var role = await _roleManager.FindByIdAsync(id);
@@ -91,12 +110,12 @@ namespace Sistema_de_Ticket.Controllers
             var vm = new RoleEditVM
             {
                 Id = role.Id,
-                Name = role.Name ?? "",
+                Name = role.Name!,
                 Permisos = Permisos.Todos
                     .Select(p => new PermisoItemVM
                     {
                         Codigo = p,
-                        Titulo = p,
+                        Titulo = FormatearPermiso(p),
                         Seleccionado = permisosActuales.Contains(p)
                     })
                     .ToList()
@@ -105,55 +124,56 @@ namespace Sistema_de_Ticket.Controllers
             return View(vm);
         }
 
-        // POST: /Roles/Edit
+        // ======================================================================================
+        // EDITAR (POST)
+        // ======================================================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(RoleEditVM vm)
         {
-            if (string.IsNullOrWhiteSpace(vm.Id))
+            if (vm.Id is null)
                 return BadRequest();
 
             var role = await _roleManager.FindByIdAsync(vm.Id);
             if (role == null) return NotFound();
 
-            if (vm.Permisos == null)
-                vm.Permisos = new List<PermisoItemVM>();
+            vm.Permisos ??= new List<PermisoItemVM>();
 
             if (!ModelState.IsValid)
             {
-                if (vm.Permisos.Count == 0)
-                {
-                    var claims = await _roleManager.GetClaimsAsync(role);
-                    var permisosActuales = claims
-                        .Where(c => c.Type == AuthorizationConfig.PermissionClaimType)
-                        .Select(c => c.Value)
-                        .ToHashSet();
+                var claimsActuales = await _roleManager.GetClaimsAsync(role);
+                var actuales = claimsActuales
+                    .Where(c => c.Type == AuthorizationConfig.PermissionClaimType)
+                    .Select(c => c.Value)
+                    .ToHashSet();
 
-                    vm.Permisos = Permisos.Todos
-                        .Select(p => new PermisoItemVM
-                        {
-                            Codigo = p,
-                            Titulo = p,
-                            Seleccionado = permisosActuales.Contains(p)
-                        })
-                        .ToList();
-                }
+                vm.Permisos = Permisos.Todos
+                    .Select(p => new PermisoItemVM
+                    {
+                        Codigo = p,
+                        Titulo = FormatearPermiso(p),
+                        Seleccionado = actuales.Contains(p)
+                    }).ToList();
+
                 return View(vm);
             }
 
             role.Name = vm.Name;
             var upd = await _roleManager.UpdateAsync(role);
+
             if (!upd.Succeeded)
             {
                 foreach (var e in upd.Errors) ModelState.AddModelError("", e.Description);
                 return View(vm);
             }
 
+            // Claims actuales del rol
             var claimsExistentes = await _roleManager.GetClaimsAsync(role);
             var claimsPermisos = claimsExistentes
                 .Where(c => c.Type == AuthorizationConfig.PermissionClaimType)
                 .ToList();
 
+            // 1. Eliminar permisos que ya NO están marcados
             foreach (var c in claimsPermisos)
             {
                 var sigue = vm.Permisos.Any(p => p.Seleccionado && p.Codigo == c.Value);
@@ -161,18 +181,22 @@ namespace Sistema_de_Ticket.Controllers
                     await _roleManager.RemoveClaimAsync(role, c);
             }
 
+            // 2. Agregar NUEVOS permisos seleccionados
             var valoresActuales = claimsPermisos.Select(c => c.Value).ToHashSet();
+
             foreach (var p in vm.Permisos.Where(x => x.Seleccionado).Select(x => x.Codigo))
             {
                 if (!valoresActuales.Contains(p))
                     await _roleManager.AddClaimAsync(role, new Claim(AuthorizationConfig.PermissionClaimType, p));
             }
 
-            TempData["ok"] = "Rol actualizado.";
+            TempData["ok"] = "Rol actualizado correctamente.";
             return RedirectToAction(nameof(Index));
         }
 
-        // POST: /Roles/Delete/ID
+        // ======================================================================================
+        // ELIMINAR
+        // ======================================================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(string id)
@@ -181,10 +205,20 @@ namespace Sistema_de_Ticket.Controllers
             if (role == null) return NotFound();
 
             var res = await _roleManager.DeleteAsync(role);
+
             TempData[res.Succeeded ? "ok" : "err"] =
-                res.Succeeded ? "Rol eliminado." : string.Join(", ", res.Errors.Select(e => e.Description));
+                res.Succeeded ? "Rol eliminado." :
+                string.Join(", ", res.Errors.Select(e => e.Description));
 
             return RedirectToAction(nameof(Index));
+        }
+
+        // ======================================================================================
+        // FORMATEADOR → Mejora visual de permisos
+        // ======================================================================================
+        private string FormatearPermiso(string codigo)
+        {
+            return codigo.Replace('.', ' ').ToUpper();
         }
     }
 }

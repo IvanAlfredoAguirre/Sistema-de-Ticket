@@ -10,6 +10,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using Sistema_de_Ticket.Auth;   // 👈 IMPORTANTE: para AuthorizationConfig
 
 namespace Sistema_de_Ticket.Controllers
 {
@@ -25,7 +26,24 @@ namespace Sistema_de_Ticket.Controllers
             _userManager = userManager;
         }
 
-        // ============ LISTADO ============
+        // ============================================================
+        //  MÉTODO CENTRAL PARA VALIDAR PERMISOS
+        // ============================================================
+        private bool TienePermiso(string permiso)
+        {
+            // SuperAdmin siempre tiene permiso
+            if (User.IsInRole("SuperAdmin"))
+                return true;
+
+            // Usamos el mismo tipo que en AuthorizationConfig
+            return User.HasClaim(AuthorizationConfig.PermissionClaimType, permiso);
+            // AuthorizationConfig.PermissionClaimType = "permission"
+        }
+
+        // ============================================================
+        //  INDEX (LISTADO)
+        //  (NO PIDE PERMISO, solo requiere estar logueado)
+        // ============================================================
         public async Task<IActionResult> Index(string? filtroEstado, string? filtroSeveridad)
         {
             var user = await _userManager.GetUserAsync(User);
@@ -33,48 +51,58 @@ namespace Sistema_de_Ticket.Controllers
 
             var roles = await _userManager.GetRolesAsync(user);
 
-            IQueryable<Ticket> q = _context.Tickets
+            IQueryable<Ticket> qBase = _context.Tickets
                 .Include(t => t.UsuarioCreador)
                 .Include(t => t.TecnicoAsignado);
 
-            // Filtro por rol
-            if (!roles.Contains("SuperAdmin"))
-            {
-                if (roles.Contains("Técnico") || roles.Contains("Tecnico") || roles.Contains("Soporte"))
-                    q = q.Where(t => t.TecnicoAsignadoId == user.Id);
-                else
-                    q = q.Where(t => t.UsuarioCreadorId == user.Id);
-            }
-
-            // Filtro por estado
+            // Filtros globales
             if (!string.IsNullOrWhiteSpace(filtroEstado) &&
                 Enum.TryParse<EstadoTicket>(filtroEstado, true, out var est))
             {
-                q = q.Where(t => t.Estado == est);
+                qBase = qBase.Where(t => t.Estado == est);
             }
 
-            // Filtro por severidad
             if (!string.IsNullOrWhiteSpace(filtroSeveridad) &&
                 Enum.TryParse<SeveridadTicket>(filtroSeveridad, true, out var sev))
             {
-                q = q.Where(t => t.Severidad == sev);
+                qBase = qBase.Where(t => t.Severidad == sev);
+            }
+
+            IQueryable<Ticket> qUser = qBase;
+
+            // Si no es SuperAdmin, restringimos lo que ve
+            if (!roles.Contains("SuperAdmin"))
+            {
+                if (roles.Contains("Técnico") || roles.Contains("Tecnico") || roles.Contains("Soporte"))
+                {
+                    // Técnicos → solo tickets asignados a ellos
+                    qUser = qUser.Where(t => t.TecnicoAsignadoId == user.Id);
+                }
+                else
+                {
+                    // Usuarios normales → solo tickets creados por ellos
+                    qUser = qUser.Where(t => t.UsuarioCreadorId == user.Id);
+                }
             }
 
             // Métricas
-            var enCurso = await q.CountAsync(t =>
+            var enCurso = await qUser.CountAsync(t =>
                 t.Estado == EstadoTicket.Abierto || t.Estado == EstadoTicket.EnProceso);
 
-            var resueltos = await q.CountAsync(t => t.Estado == EstadoTicket.Resuelto);
-            var sinAsignar = await q.CountAsync(t => t.TecnicoAsignadoId == null);
+            var resueltos = await qUser.CountAsync(t => t.Estado == EstadoTicket.Resuelto);
 
-            // Listas
-            var asignados = await q.Where(t => t.TecnicoAsignadoId != null)
-                                   .OrderByDescending(t => t.FechaCreacion)
-                                   .ToListAsync();
+            // Sin asignar → SIEMPRE global (cola de pendientes)
+            var sinAsignar = await qBase.CountAsync(t => t.TecnicoAsignadoId == null);
 
-            var pendientes = await q.Where(t => t.TecnicoAsignadoId == null)
-                                    .OrderByDescending(t => t.FechaCreacion)
-                                    .ToListAsync();
+            var asignados = await qUser
+                .Where(t => t.TecnicoAsignadoId != null)
+                .OrderByDescending(t => t.FechaCreacion)
+                .ToListAsync();
+
+            var pendientes = await qBase
+                .Where(t => t.TecnicoAsignadoId == null)
+                .OrderByDescending(t => t.FechaCreacion)
+                .ToListAsync();
 
             var vm = new TicketIndexVM
             {
@@ -92,26 +120,37 @@ namespace Sistema_de_Ticket.Controllers
             return View(vm);
         }
 
-        // ============ DETALLES ============
+        // ============================================================
+        //  DETALLES
+        // ============================================================
         public async Task<IActionResult> Details(int? id)
         {
+            if (!TienePermiso("tickets.ver"))
+                return Forbid();
+
             if (id == null) return NotFound();
 
             var ticket = await _context.Tickets
                 .Include(t => t.UsuarioCreador)
                 .Include(t => t.TecnicoAsignado)
-                .FirstOrDefaultAsync(m => m.Id == id);
+                .FirstOrDefaultAsync(t => t.Id == id);
 
             if (ticket == null) return NotFound();
 
             return View(ticket);
         }
 
-        // ============ CREAR ============
+        // ============================================================
+        //  CREAR
+        // ============================================================
         public async Task<IActionResult> Create()
         {
+            if (!TienePermiso("tickets.crear"))
+                return Forbid();
+
             await CargarCombosTecnicos();
             ViewBag.Severidades = new SelectList(Enum.GetValues(typeof(SeveridadTicket)));
+
             return View(new Ticket
             {
                 Estado = EstadoTicket.Abierto,
@@ -123,21 +162,11 @@ namespace Sistema_de_Ticket.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("Titulo,Descripcion,Severidad,TecnicoAsignadoId,Notas")] Ticket ticket)
         {
+            if (!TienePermiso("tickets.crear"))
+                return Forbid();
+
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return Challenge();
-
-            // Ignorar campos seteados por el servidor
-            ModelState.Remove(nameof(Ticket.UsuarioCreadorId));
-            ModelState.Remove(nameof(Ticket.Estado));
-            ModelState.Remove(nameof(Ticket.FechaCreacion));
-            ModelState.Remove(nameof(Ticket.FechaCierre));
-
-            if (!ModelState.IsValid)
-            {
-                await CargarCombosTecnicos();
-                ViewBag.Severidades = new SelectList(Enum.GetValues(typeof(SeveridadTicket)));
-                return View(ticket);
-            }
 
             ticket.UsuarioCreadorId = user.Id;
             ticket.Estado = EstadoTicket.Abierto;
@@ -150,15 +179,21 @@ namespace Sistema_de_Ticket.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // ============ EDITAR ============
+        // ============================================================
+        //  EDITAR
+        // ============================================================
         public async Task<IActionResult> Edit(int? id)
         {
+            if (!TienePermiso("tickets.editar"))
+                return Forbid();
+
             if (id == null) return NotFound();
 
             var ticket = await _context.Tickets.FindAsync(id);
             if (ticket == null) return NotFound();
 
             await CargarCombosTecnicos();
+
             ViewBag.Severidades = new SelectList(Enum.GetValues(typeof(SeveridadTicket)));
             ViewBag.Estados = new SelectList(Enum.GetValues(typeof(EstadoTicket)));
 
@@ -167,29 +202,12 @@ namespace Sistema_de_Ticket.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Titulo,Descripcion,Estado,Severidad,TecnicoAsignadoId,Notas")] Ticket ticket)
+        public async Task<IActionResult> Edit(int id, Ticket ticket)
         {
+            if (!TienePermiso("tickets.editar"))
+                return Forbid();
+
             if (id != ticket.Id) return NotFound();
-
-            // Quitamos del ModelState lo que el usuario no edita
-            ModelState.Remove(nameof(Ticket.UsuarioCreadorId));
-            ModelState.Remove(nameof(Ticket.UsuarioCreador));
-            ModelState.Remove(nameof(Ticket.FechaCreacion));
-
-            // Regla: para marcar como RESUELTO o CERRADO debe haber al menos una nota
-            if ((ticket.Estado == EstadoTicket.Resuelto || ticket.Estado == EstadoTicket.Cerrado)
-                && string.IsNullOrWhiteSpace(ticket.Notas))
-            {
-                ModelState.AddModelError("Notas", "Debes agregar al menos una nota para resolver/cerrar el ticket.");
-            }
-
-            if (!ModelState.IsValid)
-            {
-                await CargarCombosTecnicos();
-                ViewBag.Severidades = new SelectList(Enum.GetValues(typeof(SeveridadTicket)));
-                ViewBag.Estados = new SelectList(Enum.GetValues(typeof(EstadoTicket)));
-                return View(ticket);
-            }
 
             var dbTicket = await _context.Tickets.FirstAsync(t => t.Id == id);
 
@@ -200,47 +218,53 @@ namespace Sistema_de_Ticket.Controllers
             dbTicket.TecnicoAsignadoId = ticket.TecnicoAsignadoId;
             dbTicket.Notas = ticket.Notas;
 
-            // Si está resuelto o cerrado, seteamos fecha de cierre
-            if (dbTicket.Estado == EstadoTicket.Resuelto || dbTicket.Estado == EstadoTicket.Cerrado)
-                dbTicket.FechaCierre = DateTime.UtcNow;
-            else
-                dbTicket.FechaCierre = null;
+            dbTicket.FechaCierre =
+                (dbTicket.Estado == EstadoTicket.Resuelto || dbTicket.Estado == EstadoTicket.Cerrado)
+                    ? DateTime.UtcNow
+                    : null;
 
             await _context.SaveChangesAsync();
+
             TempData["ok"] = "Ticket actualizado correctamente.";
             return RedirectToAction(nameof(Index));
         }
 
-        // ============ RESOLVER ============
+        // ============================================================
+        //  RESOLVER
+        // ============================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Resolver(int id)
         {
+            if (!TienePermiso("tickets.cerrar"))
+                return Forbid();
+
             var ticket = await _context.Tickets.FindAsync(id);
             if (ticket == null) return NotFound();
 
-            // No se puede resolver si no tiene notas
             if (string.IsNullOrWhiteSpace(ticket.Notas))
             {
-                TempData["err"] = "Debes agregar al menos una nota antes de marcar el ticket como RESUELTO.";
+                TempData["err"] = "Debes agregar notas antes de resolver.";
                 return RedirectToAction(nameof(Edit), new { id });
             }
 
-            if (ticket.Estado != EstadoTicket.Resuelto)
-            {
-                ticket.Estado = EstadoTicket.Resuelto;
-                ticket.FechaCierre = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-                TempData["ok"] = "Ticket marcado como RESUELTO.";
-            }
+            ticket.Estado = EstadoTicket.Resuelto;
+            ticket.FechaCierre = DateTime.UtcNow;
 
+            await _context.SaveChangesAsync();
+
+            TempData["ok"] = "Ticket marcado como RESUELTO.";
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        // ============ ASIGNAR ============
-        [HttpGet]
+        // ============================================================
+        //  ASIGNAR
+        // ============================================================
         public async Task<IActionResult> Assign(int id, string? q)
         {
+            if (!TienePermiso("tickets.editar"))
+                return Forbid();
+
             var ticket = await _context.Tickets
                 .Include(t => t.TecnicoAsignado)
                 .FirstOrDefaultAsync(t => t.Id == id);
@@ -254,32 +278,31 @@ namespace Sistema_de_Ticket.Controllers
                 CurrentAssignedUserName = ticket.TecnicoAsignado?.UserName
             };
 
-            // Buscar en TODOS los usuarios
             IQueryable<AppUser> users = _userManager.Users;
 
             if (!string.IsNullOrWhiteSpace(q))
             {
                 var f = q.Trim();
+
                 users = users.Where(u =>
-                    (u.NombreUsuario != null && EF.Functions.Like(u.NombreUsuario, $"%{f}%")) ||
-                    (u.UserName != null && EF.Functions.Like(u.UserName, $"%{f}%")) ||
-                    (u.Email != null && EF.Functions.Like(u.Email, $"%{f}%"))
+                    EF.Functions.Like(u.NombreUsuario ?? "", $"%{f}%") ||
+                    EF.Functions.Like(u.UserName ?? "", $"%{f}%") ||
+                    EF.Functions.Like(u.Email ?? "", $"%{f}%")
                 );
             }
             else
             {
-                // sin query, no listamos todo
                 users = users.Where(u => false);
             }
 
             vm.Options = await users
-                .OrderBy(u => u.NombreUsuario ?? u.UserName ?? string.Empty)
+                .OrderBy(u => u.NombreUsuario ?? u.UserName ?? "")
                 .Select(u => new SelectListItem
                 {
                     Value = u.Id,
-                    Text = string.IsNullOrWhiteSpace(u.NombreUsuario)
-                            ? (u.UserName ?? "")
-                            : $"{u.NombreUsuario} ({u.UserName})"
+                    Text = string.IsNullOrEmpty(u.NombreUsuario)
+                        ? u.UserName
+                        : $"{u.NombreUsuario} ({u.UserName})"
                 })
                 .ToListAsync();
 
@@ -290,22 +313,23 @@ namespace Sistema_de_Ticket.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Assign(int id, AssignTicketVM vm, string? quickAssignMe)
         {
+            if (!TienePermiso("tickets.editar"))
+                return Forbid();
+
             var ticket = await _context.Tickets.FindAsync(id);
             if (ticket == null) return NotFound();
 
-            // Asignarme a mí
             if (!string.IsNullOrEmpty(quickAssignMe))
             {
                 var me = await _userManager.GetUserAsync(User);
-                if (me == null) return Challenge();
-
                 ticket.TecnicoAsignadoId = me.Id;
+
                 await _context.SaveChangesAsync();
+
                 TempData["ok"] = "Ticket asignado a tu usuario.";
                 return RedirectToAction(nameof(Index));
             }
 
-            // Asignar usuario elegido
             if (string.IsNullOrWhiteSpace(vm.SelectedUserId))
             {
                 ModelState.AddModelError(nameof(vm.SelectedUserId), "Debes seleccionar un usuario.");
@@ -319,41 +343,11 @@ namespace Sistema_de_Ticket.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // ============ ELIMINAR ============
-        [Authorize(Roles = "SuperAdmin")]
-        public async Task<IActionResult> Delete(int? id)
-        {
-            if (id == null) return NotFound();
-
-            var ticket = await _context.Tickets
-                .Include(t => t.UsuarioCreador)
-                .Include(t => t.TecnicoAsignado)
-                .FirstOrDefaultAsync(m => m.Id == id);
-
-            if (ticket == null) return NotFound();
-
-            return View(ticket);
-        }
-
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "SuperAdmin")]
-        public async Task<IActionResult> DeleteConfirmed(int id)
-        {
-            var ticket = await _context.Tickets.FindAsync(id);
-            if (ticket != null)
-            {
-                _context.Tickets.Remove(ticket);
-                await _context.SaveChangesAsync();
-            }
-            TempData["ok"] = "Ticket eliminado correctamente.";
-            return RedirectToAction(nameof(Index));
-        }
-
-        // ============ COMBOS TÉCNICO ============
+        // ============================================================
+        //  COMBOS TÉCNICOS
+        // ============================================================
         private async Task CargarCombosTecnicos()
         {
-            // AHORA: todos los usuarios, no solo rol Técnico
             var usuarios = await _userManager.Users
                 .OrderBy(u => u.UserName)
                 .ToListAsync();
@@ -363,7 +357,7 @@ namespace Sistema_de_Ticket.Controllers
                 {
                     Value = u.Id,
                     Text = string.IsNullOrWhiteSpace(u.NombreUsuario)
-                        ? (u.UserName ?? "")
+                        ? u.UserName
                         : $"{u.NombreUsuario} ({u.UserName})"
                 })
                 .ToList();

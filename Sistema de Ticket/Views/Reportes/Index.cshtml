@@ -4,7 +4,9 @@
 @{
     ViewData["Title"] = "Reportes";
 
-    // Datos para los gráficos
+    // permiso enviado desde el controlador
+    bool puedeExportar = ViewBag.PuedeExportar ?? false;
+
     var pieData = new[] { Model.EnCurso, Model.Resueltos, Model.SinAsignar };
     var pieLabels = new[] { "En curso", "Resueltos", "Sin asignar" };
 
@@ -21,13 +23,18 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="m-0">Reportes</h2>
-    <button class="btn btn-outline-secondary" onclick="exportarPdf()">
-        Exportar a PDF
-    </button>
+
+    @if (puedeExportar)
+    {
+        <button class="btn btn-outline-secondary" onclick="exportarPdf()">
+            Exportar a PDF
+        </button>
+    }
 </div>
 
 <div id="reportContainer">
-    <!-- Gráficos -->
+
+    <!-- ======================= GRAFICO DE PIE ======================= -->
     <div class="row g-3 mb-4">
         <div class="col-lg-4 col-md-5">
             <div class="card-help p-3 h-100">
@@ -35,6 +42,8 @@
                 <canvas id="chartPie"></canvas>
             </div>
         </div>
+
+        <!-- ======================= GRAFICO DE LINEA ======================= -->
         <div class="col-lg-8 col-md-7">
             <div class="card-help p-3 h-100">
                 <h5 class="mb-3">Tickets por fecha</h5>
@@ -43,73 +52,76 @@
         </div>
     </div>
 
-    <!-- Filtros -->
+    <!-- ======================= FILTROS ======================= -->
     <div class="card-help p-3 mb-3">
+
         <form method="get" class="row g-2 align-items-end">
-            <!-- Usuario creador -->
+
             <div class="col-12 col-md-3">
                 <label class="form-label">Usuario creador</label>
                 <select name="usuarioId" class="form-select">
                     <option value="">-- Todos --</option>
                     @foreach (var u in Model.Usuarios)
                     {
-                        <option value="@u.Value" selected="@(u.Selected ? "selected" : null)">@u.Text</option>
+                        <option value="@u.Value" selected="@(u.Selected ? "selected" : null)">
+                            @u.Text
+                        </option>
                     }
                 </select>
             </div>
 
-            <!-- Técnico asignado -->
             <div class="col-12 col-md-3">
-                <label class="form-label">Técnico asignado (resueltos)</label>
+                <label class="form-label">Técnico asignado</label>
                 <select name="tecnicoId" class="form-select">
                     <option value="">-- Todos --</option>
                     @foreach (var t in Model.Tecnicos)
                     {
-                        <option value="@t.Value" selected="@(t.Selected ? "selected" : null)">@t.Text</option>
+                        <option value="@t.Value" selected="@(t.Selected ? "selected" : null)">
+                            @t.Text
+                        </option>
                     }
                 </select>
             </div>
 
-            <!-- Severidad -->
             <div class="col-12 col-md-2">
                 <label class="form-label">Severidad</label>
                 <select name="severidad" class="form-select">
                     <option value="">-- Todas --</option>
                     @foreach (var s in Model.Severidades)
                     {
-                        <option value="@s.Value" selected="@(s.Selected ? "selected" : null)">@s.Text</option>
+                        <option value="@s.Value" selected="@(s.Selected ? "selected" : null)">
+                            @s.Text
+                        </option>
                     }
                 </select>
             </div>
 
-            <!-- Desde -->
             <div class="col-12 col-md-2">
                 <label class="form-label">Desde</label>
-                <input type="date" name="desde"
-                       class="form-control"
-                       value="@(Model.Desde?.ToString("yyyy-MM-dd"))" />
+                <input type="date" class="form-control" name="desde"
+                       value="@(Model.Desde?.ToString("yyyy-MM-dd"))">
             </div>
 
-            <!-- Hasta -->
             <div class="col-12 col-md-2">
                 <label class="form-label">Hasta</label>
-                <input type="date" name="hasta"
-                       class="form-control"
-                       value="@(Model.Hasta?.ToString("yyyy-MM-dd"))" />
+                <input type="date" class="form-control" name="hasta"
+                       value="@(Model.Hasta?.ToString("yyyy-MM-dd"))">
             </div>
 
-            <div class="col-12 col-md-12 d-flex gap-2 mt-2">
-                <button type="submit" class="btn btn-primary">Aplicar filtros</button>
+            <div class="col-12 mt-2 d-flex gap-2">
+                <button class="btn btn-primary" type="submit">Aplicar filtros</button>
                 <a asp-action="Index" class="btn btn-outline-secondary">Limpiar</a>
             </div>
+
         </form>
     </div>
 
-    <!-- Tabla de tickets -->
+    <!-- ======================= TABLA ======================= -->
     <div class="card-help p-0">
         <div class="p-3 border-bottom fw-semibold">
             Tickets (según filtros)
         </div>
+
         <div class="table-responsive">
             <table class="table mb-0 align-middle">
                 <thead>
@@ -131,14 +143,15 @@
                             <td>@t.Severidad</td>
                             <td>@t.Usuario</td>
                             <td>@t.Tecnico</td>
-                            <td>@t.FechaCreacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@t.FechaCreacion.ToString("dd/MM/yyyy HH:mm")</td>
                         </tr>
                     }
+
                     @if (!Model.Tickets.Any())
                     {
                         <tr>
-                            <td colspan="6" class="text-center text-muted">
-                                No hay tickets para los filtros seleccionados.
+                            <td colspan="6" class="text-center text-muted py-3">
+                                No hay datos para los filtros seleccionados.
                             </td>
                         </tr>
                     }
@@ -146,111 +159,55 @@
             </table>
         </div>
     </div>
+
 </div>
 
 @section Scripts {
-    <!-- Chart.js (si el CDN te funciona, lo dejamos así) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- html2canvas y jsPDF desde archivos locales -->
     <script src="~/lib/html2canvas/html2canvas.min.js"></script>
     <script src="~/lib/jspdf/jspdf.umd.min.js"></script>
 
     <script>
-        // ===== Datos para los gráficos (inyectados desde C#) =====
-        const pieData   = @Html.Raw(JsonSerializer.Serialize(pieData));
-        const pieLabels = @Html.Raw(JsonSerializer.Serialize(pieLabels));
+        const puedeExportar = @puedeExportar.ToString().ToLower();
 
-        const lineaLabels = @Html.Raw(JsonSerializer.Serialize(lineaLabels));
-        const lineaValues = @Html.Raw(JsonSerializer.Serialize(lineaValues));
-
-        // ===== Gráfico de torta =====
-        const pieEl = document.getElementById('chartPie');
-        if (pieEl && window.Chart) {
-            const ctx = pieEl.getContext('2d');
-            new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: pieLabels,
-                    datasets: [{
-                        data: pieData
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'bottom' }
-                    }
-                }
-            });
-        }
-
-        // ===== Gráfico de línea =====
-        const lineaEl = document.getElementById('chartLinea');
-        if (lineaEl && window.Chart) {
-            const ctx = lineaEl.getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: lineaLabels,
-                    datasets: [{
-                        label: 'Tickets creados',
-                        data: lineaValues,
-                        tension: 0.2,
-                        fill: false
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { precision: 0 }
-                        }
-                    }
-                }
-            });
-        }
-
-        // ===== Exportar a PDF (usa html2canvas + jsPDF locales) =====
-        function exportarPdf() {
-            if (!window.html2canvas) {
-                alert("html2canvas no está disponible. Revisa la ruta ~/lib/html2canvas/html2canvas.min.js");
-                return;
+        /* ========== GRAFICO PIE ========== */
+        new Chart(document.getElementById("chartPie"), {
+            type: 'pie',
+            data: {
+                labels: @Html.Raw(JsonSerializer.Serialize(pieLabels)),
+                datasets: [{ data: @Html.Raw(JsonSerializer.Serialize(pieData)) }]
             }
-            if (!window.jspdf || !window.jspdf.jsPDF) {
-                alert("jsPDF no está disponible. Revisa la ruta ~/lib/jspdf/jspdf.umd.min.js");
+        });
+
+        /* ========== GRAFICO LINEA ========== */
+        new Chart(document.getElementById("chartLinea"), {
+            type: 'line',
+            data: {
+                labels: @Html.Raw(JsonSerializer.Serialize(lineaLabels)),
+                datasets: [{
+                    label: "Tickets",
+                    data: @Html.Raw(JsonSerializer.Serialize(lineaValues)),
+                    fill: false,
+                    tension: 0.2
+                }]
+            }
+        });
+
+        /* ========== EXPORTAR PDF ========== */
+        function exportarPdf() {
+
+            if (!puedeExportar) {
+                alert("No tienes permiso para exportar reportes.");
                 return;
             }
 
             const { jsPDF } = window.jspdf;
-            const contenedor = document.getElementById('reportContainer');
 
-            html2canvas(contenedor).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF('l', 'mm', 'a4'); // horizontal
-
-                const pageWidth  = pdf.internal.pageSize.getWidth();
-                const pageHeight = pdf.internal.pageSize.getHeight();
-
-                const imgWidth  = canvas.width;
-                const imgHeight = canvas.height;
-
-                // Escala para que la imagen quepa COMPLETA en la página
-                const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
-
-                const finalWidth  = imgWidth * ratio;
-                const finalHeight = imgHeight * ratio;
-
-                // Centramos un poco en la página
-                const marginX = (pageWidth  - finalWidth) / 2;
-                const marginY = (pageHeight - finalHeight) / 2;
-
-                pdf.addImage(imgData, 'PNG', marginX, marginY, finalWidth, finalHeight);
-                pdf.save('reporte-tickets.pdf');
-            }).catch(err => {
-                console.error(err);
-                alert("Ocurrió un error generando la imagen del reporte.");
+            html2canvas(document.getElementById("reportContainer")).then(canvas => {
+                const img = canvas.toDataURL("image/png");
+                const pdf = new jsPDF('l', 'mm', 'a4');
+                pdf.addImage(img, 'PNG', 5, 5, 287, 200);
+                pdf.save("reporte-tickets.pdf");
             });
         }
     </script>
